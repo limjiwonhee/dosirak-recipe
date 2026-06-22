@@ -9,15 +9,19 @@ export default async function handler(req, res) {
     });
   }
 
-  const { q, relevanceLanguage, regionCode, pageToken } = req.query;
+  const { q, relevanceLanguage, regionCode, pageToken, order } = req.query;
   if (!q) {
     return res.status(400).json({ error: { message: '검색어(q)가 필요합니다.' } });
   }
+
+  const VALID_ORDERS = ['relevance', 'date', 'rating', 'viewCount'];
+  const safeOrder = VALID_ORDERS.includes(order) ? order : 'relevance';
 
   let url =
     `https://www.googleapis.com/youtube/v3/search` +
     `?part=snippet&type=video&maxResults=12` +
     `&q=${encodeURIComponent(q)}` +
+    `&order=${safeOrder}` +
     `&key=${apiKey}`;
 
   if (relevanceLanguage) url += `&relevanceLanguage=${relevanceLanguage}`;

@@ -45,9 +45,31 @@ KEYWORD_POOLS.all = [
   ...KEYWORD_POOLS.jp,
 ];
 
-function pickKeyword(lang) {
+const MODIFIERS = {
+  kr:  ['간단', '초보', '10분', '20분', '빠른', '저칼로리', '2024', '2025'],
+  en:  ['easy', 'beginner', '10 minutes', 'quick', 'healthy', '2024', '2025'],
+  jp:  ['簡単', '初心者', '10分', 'おすすめ', '2024', '2025'],
+  all: ['간단', 'easy', '簡単', '2024', '2025'],
+};
+
+const ORDER_OPTIONS = ['relevance', 'date', 'rating', 'viewCount'];
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function pickOrder() {
+  return pickRandom(ORDER_OPTIONS);
+}
+
+function buildQuery(lang) {
   const pool = KEYWORD_POOLS[lang] || KEYWORD_POOLS.all;
-  return pool[Math.floor(Math.random() * pool.length)];
+  const keyword = pickRandom(pool);
+  const mods = MODIFIERS[lang] || [];
+  if (mods.length > 0 && Math.random() < 0.5) {
+    return `${keyword} ${pickRandom(mods)}`;
+  }
+  return keyword;
 }
 
 const LANG_CONFIG = {
@@ -64,10 +86,11 @@ let pageIndex = 0;        // 몇 번째 페이지인지 표시용
 // ── Vercel 서버리스 함수 or 로컬 .env 직접 호출 ───────────────
 async function searchYoutube(query, lang, pageToken = '') {
   const cfg = LANG_CONFIG[lang];
+  const order = pickOrder();
 
   // /api/search 가 있으면 사용 (Vercel 배포 / vercel dev)
   try {
-    let url = `/api/search?q=${encodeURIComponent(query)}`;
+    let url = `/api/search?q=${encodeURIComponent(query)}&order=${order}`;
     if (cfg) url += `&relevanceLanguage=${cfg.relevance}&regionCode=${cfg.region}`;
     if (pageToken) url += `&pageToken=${encodeURIComponent(pageToken)}`;
 
@@ -94,6 +117,7 @@ async function searchYoutube(query, lang, pageToken = '') {
     `https://www.googleapis.com/youtube/v3/search` +
     `?part=snippet&type=video&maxResults=12` +
     `&q=${encodeURIComponent(query)}` +
+    `&order=${order}` +
     `&key=${apiKey}`;
   if (cfg) url += `&relevanceLanguage=${cfg.relevance}&regionCode=${cfg.region}`;
   if (pageToken) url += `&pageToken=${encodeURIComponent(pageToken)}`;
@@ -229,7 +253,7 @@ async function performRefresh() {
   btn.disabled = true;
   btn.classList.add('spinning');
 
-  const newQuery = pickKeyword(currentLang);
+  const newQuery = buildQuery(currentLang);
   $('searchInput').value = newQuery;
 
   try {
@@ -247,7 +271,7 @@ function activateTab(lang) {
     t.classList.toggle('active', t.dataset.lang === lang)
   );
   currentLang = lang;
-  const query = pickKeyword(lang);
+  const query = buildQuery(lang);
   $('searchInput').value = query;
   performSearch(query, lang);
 }
@@ -273,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('refreshBtn').addEventListener('click', performRefresh);
 
   // 초기 검색
-  const defaultQuery = pickKeyword('all');
+  const defaultQuery = buildQuery('all');
   $('searchInput').value = defaultQuery;
   performSearch(defaultQuery, 'all');
 });
