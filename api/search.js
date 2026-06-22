@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const { q, relevanceLanguage, regionCode } = req.query;
+  const { q, relevanceLanguage, regionCode, pageToken } = req.query;
   if (!q) {
     return res.status(400).json({ error: { message: '검색어(q)가 필요합니다.' } });
   }
@@ -22,6 +22,7 @@ export default async function handler(req, res) {
 
   if (relevanceLanguage) url += `&relevanceLanguage=${relevanceLanguage}`;
   if (regionCode) url += `&regionCode=${regionCode}`;
+  if (pageToken) url += `&pageToken=${encodeURIComponent(pageToken)}`;
 
   try {
     const ytRes = await fetch(url);

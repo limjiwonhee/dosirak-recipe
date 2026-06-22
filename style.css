@@ -229,6 +229,58 @@ main { flex: 1; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── Results Header ── */
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+
+.results-meta {
+  font-size: 0.82rem;
+  color: var(--text-sub);
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: var(--white);
+  color: var(--terracotta);
+  border: 1.5px solid var(--terracotta);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.refresh-btn:hover {
+  background: var(--terracotta);
+  color: var(--white);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  transition: transform 0.5s ease;
+}
+
+.refresh-btn.spinning .refresh-icon {
+  animation: spin 0.6s linear infinite;
+}
+
 /* ── Results Grid ── */
 .results-grid {
   display: grid;

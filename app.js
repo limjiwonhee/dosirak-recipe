@@ -12,15 +12,19 @@ const LANG_CONFIG = {
 };
 
 let currentLang = 'all';
+let currentQuery = '';
+let nextPageToken = '';   // 다음 페이지 토큰
+let pageIndex = 0;        // 몇 번째 페이지인지 표시용
 
 // ── Vercel 서버리스 함수 or 로컬 .env 직접 호출 ───────────────
-async function searchYoutube(query, lang) {
+async function searchYoutube(query, lang, pageToken = '') {
   const cfg = LANG_CONFIG[lang];
 
   // /api/search 가 있으면 사용 (Vercel 배포 / vercel dev)
   try {
     let url = `/api/search?q=${encodeURIComponent(query)}`;
     if (cfg) url += `&relevanceLanguage=${cfg.relevance}&regionCode=${cfg.region}`;
+    if (pageToken) url += `&pageToken=${encodeURIComponent(pageToken)}`;
 
     const res = await fetch(url);
     if (res.ok || res.status === 400) {
@@ -34,7 +38,6 @@ async function searchYoutube(query, lang) {
       throw new Error(data?.error?.message || `HTTP ${res.status}`);
     }
   } catch (err) {
-    // fetch 자체 실패(네트워크 오류 등)가 아닌 경우 그대로 던짐
     if (!(err instanceof TypeError)) throw err;
   }
 
@@ -48,6 +51,7 @@ async function searchYoutube(query, lang) {
     `&q=${encodeURIComponent(query)}` +
     `&key=${apiKey}`;
   if (cfg) url += `&relevanceLanguage=${cfg.relevance}&regionCode=${cfg.region}`;
+  if (pageToken) url += `&pageToken=${encodeURIComponent(pageToken)}`;
 
   const res = await fetch(url);
   if (!res.ok) {
@@ -115,6 +119,7 @@ const $ = id => document.getElementById(id);
 function showLoading() {
   $('loading').classList.remove('hidden');
   $('results').innerHTML = '';
+  $('resultsHeader').classList.add('hidden');
   $('noResults').classList.add('hidden');
   $('errorMsg').classList.add('hidden');
 }
@@ -125,24 +130,87 @@ function showError(msg) {
   const el = $('errorMsg');
   el.textContent = '⚠️ ' + msg;
   el.classList.remove('hidden');
+  $('resultsHeader').classList.add('hidden');
 }
 
-// ── 검색 실행 ───────────────────────────────────────────────────
+function renderResults(items, lang) {
+  $('results').innerHTML = items.map(item => buildCard(item, lang)).join('');
+
+  // 결과 헤더 표시
+  const header = $('resultsHeader');
+  const meta = $('resultsMeta');
+  meta.textContent = pageIndex === 0
+    ? `${items.length}개 영상`
+    : `${items.length}개 영상 · ${pageIndex + 1}페이지`;
+  header.classList.remove('hidden');
+
+  // 버튼 레이블 업데이트
+  const btn = $('refreshBtn');
+  btn.querySelector('svg ~ text, svg + *');
+  btn.lastChild.textContent = ' 다른 영상 보기';
+}
+
+// ── 검색 실행 (새 검색 — 페이지 초기화) ────────────────────────
 async function performSearch(query, lang) {
   if (!query.trim()) return;
+  currentQuery = query;
+  currentLang = lang;
+  nextPageToken = '';
+  pageIndex = 0;
+
   showLoading();
   try {
-    const data = await searchYoutube(query, lang);
+    const data = await searchYoutube(query, lang, '');
+    nextPageToken = data.nextPageToken || '';
     hideLoading();
+
     const items = data.items || [];
     if (items.length === 0) {
       $('noResults').classList.remove('hidden');
       return;
     }
-    $('results').innerHTML = items.map(item => buildCard(item, lang)).join('');
+    renderResults(items, lang);
   } catch (err) {
     hideLoading();
     showError(err.message);
+  }
+}
+
+// ── 다른 영상 보기 (pageToken으로 다음 페이지) ──────────────────
+async function performRefresh() {
+  if (!currentQuery) return;
+
+  const btn = $('refreshBtn');
+  btn.disabled = true;
+  btn.classList.add('spinning');
+
+  // nextPageToken 없으면 처음 페이지로 순환
+  const tokenToUse = nextPageToken || '';
+  if (!nextPageToken) pageIndex = 0;
+
+  try {
+    const data = await searchYoutube(currentQuery, currentLang, tokenToUse);
+    nextPageToken = data.nextPageToken || '';
+    pageIndex = tokenToUse ? pageIndex + 1 : 0;
+
+    $('results').innerHTML = '';
+    $('noResults').classList.add('hidden');
+    $('errorMsg').classList.add('hidden');
+
+    const items = data.items || [];
+    if (items.length === 0) {
+      $('noResults').classList.remove('hidden');
+      $('resultsHeader').classList.add('hidden');
+    } else {
+      renderResults(items, currentLang);
+      // 결과 상단으로 부드럽게 스크롤
+      $('resultsHeader').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('spinning');
   }
 }
 
@@ -151,7 +219,6 @@ function activateTab(lang) {
   document.querySelectorAll('.tab').forEach(t =>
     t.classList.toggle('active', t.dataset.lang === lang)
   );
-  currentLang = lang;
   const query = QUERIES[lang];
   $('searchInput').value = query;
   performSearch(query, lang);
@@ -174,6 +241,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (q) performSearch(q, currentLang);
     }
   });
+
+  $('refreshBtn').addEventListener('click', performRefresh);
 
   // 초기 검색
   const defaultQuery = QUERIES.all;
