@@ -45,7 +45,6 @@ const KEYWORD_POOLS = {
     'lazy meal prep',
   ],
   jp: [
-    'bento',
     'japanese bento',
     'bento making',
     'bento prep',
