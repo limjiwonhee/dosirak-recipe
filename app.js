@@ -1,9 +1,54 @@
-const QUERIES = {
-  all: '도시락 레시피 직장인 점심 밀프렙',
-  kr:  '직장인 도시락 레시피 밀프렙',
-  jp:  'お弁当 レシピ 簡単',
-  en:  'work lunch meal prep easy',
+const KEYWORD_POOLS = {
+  kr: [
+    '직장인 도시락',
+    '회사 도시락',
+    '출근 도시락',
+  ],
+  en: [
+    'meal prep',
+    'weekly meal prep',
+    'healthy meal prep',
+    'lunch meal prep',
+    'meal prep for work',
+    'bento meal prep',
+    'meal prep under 500 calories',
+    'office lunch',
+    'work lunch ideas',
+    'work lunch prep',
+    'corporate lunchbox',
+    'high protein lunch',
+    'healthy lunch box',
+    'weight loss lunch',
+    'low calorie lunch box',
+    'protein meal prep',
+    'macro friendly meal prep',
+    'packed lunch ideas',
+    'homemade lunch box',
+    'easy lunch box',
+    'simple lunch recipes',
+    'realistic meal prep',
+    'lazy meal prep',
+  ],
+  jp: [
+    'bento',
+    'japanese bento',
+    'bento making',
+    'bento prep',
+    'bento for work',
+    'お弁当',
+    '作り置き弁当',
+  ],
 };
+KEYWORD_POOLS.all = [
+  ...KEYWORD_POOLS.kr,
+  ...KEYWORD_POOLS.en,
+  ...KEYWORD_POOLS.jp,
+];
+
+function pickKeyword(lang) {
+  const pool = KEYWORD_POOLS[lang] || KEYWORD_POOLS.all;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 
 const LANG_CONFIG = {
   kr: { badge: 'KR', cls: 'badge-kr', relevance: 'ko', region: 'KR' },
@@ -176,38 +221,20 @@ async function performSearch(query, lang) {
   }
 }
 
-// ── 다른 영상 보기 (pageToken으로 다음 페이지) ──────────────────
+// ── 다른 영상 보기 (랜덤 키워드로 새 검색) ─────────────────────
 async function performRefresh() {
-  if (!currentQuery) return;
+  if (!currentLang) return;
 
   const btn = $('refreshBtn');
   btn.disabled = true;
   btn.classList.add('spinning');
 
-  // nextPageToken 없으면 처음 페이지로 순환
-  const tokenToUse = nextPageToken || '';
-  if (!nextPageToken) pageIndex = 0;
+  const newQuery = pickKeyword(currentLang);
+  $('searchInput').value = newQuery;
 
   try {
-    const data = await searchYoutube(currentQuery, currentLang, tokenToUse);
-    nextPageToken = data.nextPageToken || '';
-    pageIndex = tokenToUse ? pageIndex + 1 : 0;
-
-    $('results').innerHTML = '';
-    $('noResults').classList.add('hidden');
-    $('errorMsg').classList.add('hidden');
-
-    const items = data.items || [];
-    if (items.length === 0) {
-      $('noResults').classList.remove('hidden');
-      $('resultsHeader').classList.add('hidden');
-    } else {
-      renderResults(items, currentLang);
-      // 결과 상단으로 부드럽게 스크롤
-      $('resultsHeader').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  } catch (err) {
-    showError(err.message);
+    await performSearch(newQuery, currentLang);
+    $('resultsHeader').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } finally {
     btn.disabled = false;
     btn.classList.remove('spinning');
@@ -219,7 +246,8 @@ function activateTab(lang) {
   document.querySelectorAll('.tab').forEach(t =>
     t.classList.toggle('active', t.dataset.lang === lang)
   );
-  const query = QUERIES[lang];
+  currentLang = lang;
+  const query = pickKeyword(lang);
   $('searchInput').value = query;
   performSearch(query, lang);
 }
@@ -245,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('refreshBtn').addEventListener('click', performRefresh);
 
   // 초기 검색
-  const defaultQuery = QUERIES.all;
+  const defaultQuery = pickKeyword('all');
   $('searchInput').value = defaultQuery;
   performSearch(defaultQuery, 'all');
 });
